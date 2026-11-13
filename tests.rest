@@ -1,0 +1,60 @@
+@todoId = 44e0d6a7-410e-415e-bba4-48aaf1db78e3
+### 1. Create a todo
+POST http://localhost:3000/todos
+Content-Type: application/json
+
+{
+  "title": "Write API documentation",
+  "description": "Test the Todo API"
+}
+### 2. Get one todo by ID
+GET http://localhost:3000/todos/{{todoId}}
+### 3. Update the todo state
+PUT http://localhost:3000/todos/{{todoId}}
+Content-Type: application/json
+
+{
+  "state": "doing"
+}
+
+### 4. List all todos
+GET http://localhost:3000/todos
+
+### 5. List only doing todos
+GET http://localhost:3000/todos?state=doing
+
+### 6. Check that the updated task is no longer in the todo state
+GET http://localhost:3000/todos?state=todo
+
+### 7. Delete the todo
+DELETE http://localhost:3000/todos/{{todoId}}
+### 8. Check that the deleted todo is gone
+GET http://localhost:3000/todos/{{todoId}}
+
+### 9. Reject an invalid state
+POST http://localhost:3000/todos
+Content-Type: application/json
+
+{
+  "title": "Test invalid state",
+  "state": "finished"
+}
+
+### 10. Reject malformed JSON
+POST http://localhost:3000/todos
+Content-Type: application/json
+
+{
+  "title": "Test broken JSON",
+}
+
+### 11. Reject an invalid state when updating
+PUT http://localhost:3000/todos/{{todoId}}
+Content-Type: application/json
+
+{
+  "state": "finished"
+}
+
+### 12. Reject an invalid state filter
+GET http://localhost:3000/todos?state=finished
