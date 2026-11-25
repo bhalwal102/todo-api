@@ -1,50 +1,22 @@
 const express = require('express');
 const { randomUUID } = require('node:crypto');
+const { validateTodo, states } = require('./validateTodo');
+const swaggerUi = require('swagger-ui-express');
+const openapi = require('./openapi');
+const { toCsv } = require('./toCsv');
 
 const app = express();
 const todos = [];
-const states = ['todo', 'doing', 'done'];
-const editableFields = ['title', 'description', 'state', 'dueDate'];
 
 app.use(express.json());
 
-function validateTodo(body, creating) {
-  if (!body || typeof body !== 'object' || Array.isArray(body)) {
-    return 'Send a JSON object.';
-  }
+app.get('/doc/openapi.json', (req, res) => {
+  res.json(openapi);
+});
 
-  const fields = Object.keys(body);
-  if (fields.length === 0 || fields.some(field => !editableFields.includes(field))) {
-    return 'Send at least one supported todo field.';
-  }
-
-  if (creating || Object.hasOwn(body, 'title')) {
-    if (typeof body.title !== 'string' || !body.title.trim()) {
-      return 'Title must be a non-empty string.';
-    }
-  }
-
-  if (Object.hasOwn(body, 'state') && !states.includes(body.state)) {
-    return 'State must be todo, doing, or done.';
-  }
-
-  if (Object.hasOwn(body, 'description') && typeof body.description !== 'string') {
-    return 'Description must be a string.';
-  }
-
-  if (Object.hasOwn(body, 'dueDate')) {
-    const date = body.dueDate;
-    if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      return 'Due date must use YYYY-MM-DD format.';
-    }
-    const parsedDate = new Date(date);
-    if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) {
-      return 'Due date must be a valid calendar date.';
-    }
-  }
-
-  return null;
-}
+app.use('/doc', swaggerUi.serve, swaggerUi.setup(null, {
+  swaggerOptions: { url: '/doc/openapi.json' },
+}));
 
 // Create a todo.
 app.post('/todos', (req, res) => {
@@ -65,19 +37,32 @@ app.post('/todos', (req, res) => {
   return res.location(`/todos/${todo.id}`).status(201).json(todo);
 });
 
-// List all todos or filter them by state.
+// List todos as JSON or CSV, optionally filtered by state.
 app.get('/todos', (req, res) => {
   const { state } = req.query;
-  if (state === undefined) return res.json(todos);
 
-  if (!states.includes(state)) {
+  if (state !== undefined && !states.includes(state)) {
     return res.status(400).json({ error: 'State must be todo, doing, or done.' });
   }
 
-  return res.json(todos.filter(todo => todo.state === state));
+  const matchingTodos =
+    state === undefined ? todos : todos.filter(todo => todo.state === state);
+
+  res.vary('Accept');
+  const format = req.accepts(['application/json', 'text/csv']);
+
+  if (!format) {
+    return res.status(406).json({ error: 'Request application/json or text/csv.' });
+  }
+
+  if (format === 'text/csv') {
+    return res.type('text/csv').send(toCsv(matchingTodos));
+  }
+
+  return res.json(matchingTodos);
 });
 
-// Find one todo by its ID.
+// Find one todo by ID.
 app.get('/todos/:id', (req, res) => {
   const todo = todos.find(item => item.id === req.params.id);
   if (!todo) return res.status(404).json({ error: 'Todo not found.' });
@@ -109,14 +94,19 @@ app.delete('/todos/:id', (req, res) => {
   return res.status(204).end();
 });
 
-// Return a JSON error when the request body contains invalid JSON.
+// Return a JSON error for invalid JSON.
 app.use((error, req, res, next) => {
   if (error.type === 'entity.parse.failed') {
     return res.status(400).json({ error: 'Invalid JSON body.' });
   }
+
   return next(error);
 });
 
-app.listen(3000, () => {
-  console.log('Todo API running at http://localhost:3000');
-});
+if (require.main === module) {
+  app.listen(3000, () => {
+    console.log('Todo API running at http://localhost:3000');
+  });
+}
+
+module.exports = app;

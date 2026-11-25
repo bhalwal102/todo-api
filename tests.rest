@@ -58,3 +58,16 @@ Content-Type: application/json
 
 ### 12. Reject an invalid state filter
 GET http://localhost:3000/todos?state=finished
+
+### Create a done todo for the CSV test
+POST http://localhost:3000/todos
+Content-Type: application/json
+
+{
+  "title": "Test CSV",
+  "state": "done"
+}
+
+### Get done todos as CSV
+GET http://localhost:3000/todos?state=done
+Accept: text/csv
